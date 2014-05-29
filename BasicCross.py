@@ -8,6 +8,7 @@ Copyright (c) 2014 Northwestern University. All rights reserved.
 """
 
 from Chromosomes import *
+from CrossUtils import *
 from Individual import*
 from numpy import *
 from WormIndividual import *
@@ -19,8 +20,6 @@ import random
 import sys
 import thread
 import threading
-
-lock = threading.Lock();
 
 def backCrossTillLimit(wormASet, wormB, physLoc, chromNumber, parent, limit):
   """Crosses each worm in set A with worm B until the limit number of offspring that keep the parent segment at the desired location has been met"""
@@ -37,7 +36,7 @@ def backCrossTillLimit(wormASet, wormB, physLoc, chromNumber, parent, limit):
 
     return generation
 
-def backCrossTillLimitDiploid(diploidASet, diploidB, physLoc, chromNumber, parent, limit):
+def backCross(diploidASet, diploidB, physLoc, chromNumber, allele):
   """Crosses each worm in set A with worm B until the limit number of offspring that keep the parent segment at the desired location has been met"""
   generation = []
   loc = Chromosome.getLoc(physLoc, chromNumber)
@@ -45,15 +44,18 @@ def backCrossTillLimitDiploid(diploidASet, diploidB, physLoc, chromNumber, paren
   for diploidA in diploidASet:  
     curDiploid = diploidA.mate(diploidB)[0]
     
-    while (curDiploid.chromosome_set[0][chromNumber].getParentAtLocation(loc) != parent and curDiploid.chromosome_set[1][chromNumber].getParentAtLocation(loc) != parent):                
+    while (curDiploid.chromosome_set[0][chromNumber].getParentAtLocation(loc) != allele and curDiploid.chromosome_set[1][chromNumber].getParentAtLocation(loc) != allele):                
       curDiploid = diploidA.mate(diploidB)[0]
-    #if curDiploid.chromosome_set[0][chromNumber].getParentAtLocation(loc) == parent or curDiploid.chromosome_set[1][chromNumber].getParentAtLocation(loc) == parent:
       
     generation.append(curDiploid)
     
   return generation
 
-def selfCrossTillLimit(diploidSet, physLoc, chromNumber, parent, limit):
+def selfCross(diploidSet, physLoc, chromNumber, allele):
+  return backCrossTillLimitDiploid(diploidSet, diploidSet[0], physLoc, chromNumber, allele)
+
+def circularCrossTillLimit(diploidSet, physLoc, chromNumber, parent, limit):
+  return 0
 
 def roundRobinCrossTillLimitDiploid(diploidSet, physLoc, chromNumber, parent, limit):
   generation = []
@@ -68,7 +70,7 @@ def roundRobinCrossTillLimitDiploid(diploidSet, physLoc, chromNumber, parent, li
            
   return generation
 
-def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, targetName, bucketSize, g):
+def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, targetName, bucketSize, statFile):
   indNumber = 1;
   genLoc = Chromosome.getLoc(physLoc, chromNumber)
   
@@ -83,7 +85,6 @@ def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, target
       if chrSet[chromNumber].getParentAtLocation(genLoc) == targetName:
         curIntervals.append(chrSet[chromNumber].physicalLocsOfInterval(genLoc, chromNumber))
             
-    
     totalLower = 0;
     totalUpper = 0;
     for interval in curIntervals:
@@ -94,7 +95,7 @@ def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, target
     avgLower = totalLower / len(curIntervals)
     avgUpper = totalUpper / len(curIntervals)
     avgSelected = totalSelected / 2
-    g.write('%d,%d,%d,%d,%f,%f,%d,%d\n' % (crossNumber, indNumber, targetChrom + 1, physLoc, avgSelected, perGenome, avgLower, avgUpper))
+    statFile.write('%d,%d,%d,%d,%f,%f,%d,%d\n' % (crossNumber, indNumber, targetChrom + 1, physLoc, avgSelected, perGenome, avgLower, avgUpper))
     indNumber += 1
 
 #Takes in the general statistics file and writes summary statistics on a particular generation of the back cross    
@@ -170,8 +171,8 @@ def putIntervalsIntoBuckets(numCross, chromNumber, physLoc, physInterval, bucket
   filePath.write('\n')
 
 #Selects a random subset from a set 
-def selectRandomSubset(wormSet, numSelect):
-  length = len(wormSet)
+def selectRandomSubset(diploidSet, numSelect):
+  length = len(diploidSet)
   randomIndices = [];
   toReturnSet = []
   random.seed()
@@ -186,29 +187,12 @@ def selectRandomSubset(wormSet, numSelect):
       randomIndices.append(curIndex)
   
   for i in randomIndices:
-    toReturnSet.append(wormSet[i])
+    toReturnSet.append(diploidSet[i])
   
   return toReturnSet
 
-#Calculates the average left and right intervals from a set of physical intervals       
-def calculateAveragePhysicalIntervals(physIntervals, physLoc, chromNumber, filePath):
-  lowerIntervalSums = 0
-  upperIntervalSums = 0
-  lowerIntervalAverages = 0
-  upperIntervalAverages = 0
-    
-  for x in range(len(physIntervals)):
-    interval = physIntervals[x]
-    lowerIntervalSums += interval[0]
-    upperIntervalSums += interval[1]
-
-    lowerIntervalAverages = lowerIntervalSums / len(physIntervals)
-    upperIntervalAverages = upperIntervalSums / len(physIntervals)
-
-  filePath.write(',%d,%d' % (lowerIntervalAverages, upperIntervalAverages))
-
 #Simulates a back crosses in which a particular base pair allele is held 
-def backCrossSimulation(physLoc, chromNumber, crossNumber, indNumber, bucketSize, numRandomSelect, numIter):
+def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucketSize, numRandomSelect, numIter):
   #Opens a file that contains info about the general statistics (percentage of genome, percentage of selected chromosome) of the cross simulation
   if os.path.isfile('general_statistics_%d_%d.csv' % (physLoc, chromNumber + 1)):
     g = open('general_statistics_%d_%d.csv' % (physLoc, chromNumber + 1), 'a')
@@ -224,21 +208,19 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, indNumber, bucketSize
     h.write('Number of Back Crosses,Selected Chromosome,Selected Base Pair,Bucket Size,Number Sampled,Minimum Left Base Pair, Maximum Left Base Pair,Number Left Unique Buckets,Minimum Right Base Pair, Maximum Right Base Pair,Number Right Unique Buckets\n')
   
   #Runs through the number of crosses specified and makes the individuals
-  AparentSet = []
-  for i in range(indNumber):
-    AparentSet.append(Diploid(name = "A", newChr = 6))
+  diploidSet = generateHetero(numIndividuals)
         
   Bparent = Diploid(name = "B", newChr = 6)
-  targetNameDip = AparentSet[0].name
+  targetNameDip = "A"
   genLoc = Chromosome.getLoc(physLoc, chromNumber)
 
   for k in range(crossNumber):
-    AparentSet = backCrossTillLimitDiploid(AparentSet, Bparent, physLoc, chromNumber, targetNameDip, indNumber)
-    writeGeneralStatistics(k + 1, physLoc, AparentSet, chromNumber, targetNameDip, bucketSize, g)
+    diploidSet = backCross(diploidSet, Bparent, physLoc, chromNumber, targetNameDip)
+    writeGeneralStatistics(k + 1, physLoc, diploidSet, chromNumber, targetNameDip, bucketSize, g)
     
     for i in range(numIter):
       physIntervals = []
-      sampleSet = selectRandomSubset(AparentSet, numRandomSelect);
+      sampleSet = selectRandomSubset(diploidSet, numRandomSelect);
       
       for diploid in sampleSet:
         for chrSet in diploid.chromosome_set:
@@ -248,13 +230,9 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, indNumber, bucketSize
       putIntervalsIntoBuckets(k + 1, chromNumber, physLoc, physIntervals, bucketSize, numRandomSelect, h)
       
     # Format of the output files is as follows: Number of Crosses_ Number Of Individuals per Cross _ Target Chromosome _ Physical Location on the Target Chromosome
-    fileName = "%d_%d_%d_%d_crossConfig.csv" % (k + 1, indNumber, chromNumber + 1, physLoc)
+    fileName = "%d_%d_%d_%d_crossConfig.csv" % (k + 1, numIndividuals, chromNumber + 1, physLoc)
   
-    truncAparentSet = []
-  
-    for i in range(10):
-      truncAparentSet.append(AparentSet[i])
-    
+    truncAparentSet = selectRandomSubset(diploidSet, numRandomSelect)    
     writeGroupSegments(fileName, truncAparentSet)
 
   g.close()
@@ -269,4 +247,5 @@ if __name__ == '__main__':
   numRandomSelect = int(sys.argv[6])
   numIter = int(sys.argv[7])
   
-  backCrossSimulation(physLoc, chromNumber, numCrosses, numIndividuals, bucketSize, numRandomSelect, numIter)
+  for i in range(numIter):
+    backCrossSimulation(physLoc, chromNumber, numCrosses, numIndividuals, bucketSize, numRandomSelect, numIter)
