@@ -135,17 +135,21 @@ class Chromosome(object):
             i+=1
         return self.segments[i-1][1]
     
+    #TODO(zifanxiang): Refactor using getParentAtLocation
     def getParentAtLocations(self, locs):
         """gets the Parental Identity for a list of chromosomal locations"""
         parents = [''] * len(locs)
-        order = [i for _,i in sorted(itertools.izip( locs, range(len(locs)) ))]
-        if locs[order[0]] < 0 or locs[order[-1]] > 1 :
-            raise ValueError, "Locations must be in range [0,1]"
-        i = 0
-        for n in order:
-          while i < len(self.segments) and self.segments[i][0] < locs[n] :
-            i+=1
-          parents[n] = self.segments[i-1][1]
+        for i in range(len(locs)):
+            parents[i] = getParentAtLocation(locs[i])
+        
+        #order = [i for _,i in sorted(itertools.izip( locs, range(len(locs)) ))]
+        #if locs[order[0]] < 0 or locs[order[-1]] > 1 :
+        #    raise ValueError, "Locations must be in range [0,1]"
+        #i = 0
+        #for n in order:
+        #  while i < len(self.segments) and self.segments[i][0] < locs[n] :
+        #    i+=1
+        #  parents[n] = self.segments[i-1][1]
         return parents
     
     
@@ -155,7 +159,8 @@ class Chromosome(object):
         raise ValueError, "Map location must be withing the range of the chromosome."
       loc = cM/float(self.cM)
       return self.getParentAtLocation(loc)
-      
+    
+    #TODO(zifanxiang): Refactor using getParentAtMapLoc
     def getParentAtMapLocs(self, mapLocs):
         """gets the Parental Identity for a list of chromosomal locations"""
         parents = [''] * len(mapLocs)
