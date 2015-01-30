@@ -120,20 +120,23 @@ class Chromosome(object):
     @staticmethod
     def getPhysDistanceFromLoc(loc, number):
         """Gets a physical location from a [0,1] location"""
-        if loc > 1 or loc < 0:
+        if loc < 0.0 or loc > 1.0:
             raise ValueError, "The location must be within the range [0,1]"
         
         return Chromosome.getPhysDistance(loc * cM_max[number], number)
     
     def getParentAtLocation(self, loc):
         """gets the Parental Identity for a chromosomal location"""
-        if loc < 0 or loc > 1.01:
+        if loc < 0.0 or loc > 1.0:
             raise ValueError, "Location must be in range [0,1]"
+	if loc == 0.0:
+          return self.segments[0][1]
             
         i = 0
-        while i < len(self.segments) and self.segments[i][0] < loc :
+        while i < len(self.segments) and self.segments[i][0] < loc:
             i+=1
-        return self.segments[i-1][1]
+
+        return self.segments[i - 1][1]
     
     #TODO(zifanxiang): Refactor using getParentAtLocation
     def getParentAtLocations(self, locs):
@@ -270,11 +273,13 @@ class Chromosome(object):
         
         if (i < len(seg)):
             upperBound = seg[i][0]
-            
+    
         if (i > 0):
             lowerBound = seg[i - 1][0]
-        else:
+        elif (len(seg) != 1):
             upperBound = seg[i + 1][0]
+	else:
+	    upperBound = 1
         
         return [int(Chromosome.getPhysDistanceFromLoc(lowerBound, chromNumber)), int(Chromosome.getPhysDistanceFromLoc(upperBound, chromNumber))]
         
