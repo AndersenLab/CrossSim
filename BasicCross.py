@@ -224,7 +224,7 @@ def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, target
   
     for chrSet in diploid.chromosome_set:
       percent = chrSet[targetChrom].getPercentageOfParent(targetName)
-      totalSelected += chrSet[targetChrom].getPercentageOfParent(targetName);
+      totalSelected += percent
         
       if chrSet[chromNumber].getParentAtLocation(genLoc) == targetName:
         curIntervals.append(chrSet[chromNumber].physicalLocsOfInterval(genLoc, chromNumber))
@@ -235,7 +235,7 @@ def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, target
       totalLower += interval[0];
       totalUpper += interval[1]
       
-    perGenome = diploid.getPercentageOfGenome(targetName, chromNumber)
+    perGenome = diploid.getPercentageOfGenome(targetName, chromNumber) # Percent of genome not including the selected chromosome
     avgLower = totalLower / len(curIntervals)
     avgUpper = totalUpper / len(curIntervals)
     avgSelected = totalSelected / 2
@@ -359,7 +359,13 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucke
   genLoc = Chromosome.getLoc(physLoc, chromNumber)
 
   for k in range(crossNumber):
-    diploidSet = randomCross(diploidSet, physLoc, chromNumber, targetNameDip)
+    if crossOption == 1:
+      diploidSet = backCross(diploidSet, Bparent, physLoc, chromNumber, targetNameDip)
+    elif crossOption == 2:
+      diploidSet = backCross(diploidSet, Bparent, physLoc, chromNumber, targetNameDip)
+    else:
+      diploidSet = backCross(diploidSet, Bparent, physLoc, chromNumber, targetNameDip)
+    
     writeGeneralStatistics(k + 1, physLoc, diploidSet, chromNumber, targetNameDip, bucketSize, g)
     
     for i in range(numIter):
