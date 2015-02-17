@@ -138,23 +138,13 @@ class Chromosome(object):
 
         return self.segments[i - 1][1]
     
-    #TODO(zifanxiang): Refactor using getParentAtLocation
     def getParentAtLocations(self, locs):
         """gets the Parental Identity for a list of chromosomal locations"""
         parents = [''] * len(locs)
         for i in range(len(locs)):
             parents[i] = getParentAtLocation(locs[i])
         
-        #order = [i for _,i in sorted(itertools.izip( locs, range(len(locs)) ))]
-        #if locs[order[0]] < 0 or locs[order[-1]] > 1 :
-        #    raise ValueError, "Locations must be in range [0,1]"
-        #i = 0
-        #for n in order:
-        #  while i < len(self.segments) and self.segments[i][0] < locs[n] :
-        #    i+=1
-        #  parents[n] = self.segments[i-1][1]
         return parents
-    
     
     def getParentAtMapLoc(self, mapLoc):
       """gets the Parental identity for a given cM position"""
@@ -261,11 +251,11 @@ class Chromosome(object):
         return percent
     
     #Returns the left and right bounds of the allele at the selected genetic location
-    def physicalLocsOfInterval(self, genLoc, chromNumber):
+    def physicalLocsOfInterval(self, loc, chromNumber):
         seg = list(self.segments)
         i = 0
         
-        while (i < len(seg) and seg[i][0] < genLoc):
+        while (i < len(seg) and seg[i][0] < loc):
             i += 1
     
         lowerBound = 0
@@ -278,8 +268,8 @@ class Chromosome(object):
             lowerBound = seg[i - 1][0]
         elif (len(seg) != 1):
             upperBound = seg[i + 1][0]
-	else:
-	    upperBound = 1
+        else:
+	        upperBound = 1
         
         return [int(Chromosome.getPhysDistanceFromLoc(lowerBound, chromNumber)), int(Chromosome.getPhysDistanceFromLoc(upperBound, chromNumber))]
         

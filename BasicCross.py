@@ -10,31 +10,15 @@ Copyright (c) 2015 Northwestern University. All rights reserved.
 from Chromosomes import *
 from CrossUtils import *
 from Individual import *
-from numpy import *
-from WormIndividual import *
 from WormUtils import *
+import numpy as np
 import operator
 import os.path
 import random
 import sys
 
-def backCrossTillLimit(wormASet, wormB, physLoc, chromNumber, parent, limit):
-  """Crosses each worm in set A with worm B until the limit number of offspring that keep the parent segment at the desired location has been met"""
-  generation = []
-  loc = Chromosome.getLoc(physLoc, chromNumber)
-    
-  while (len(generation) < limit):
-    for wormA in wormASet:  
-      if (wormA.sex == "hermaphrodite"):
-        curWorm = wormA.mate(wormB)
-        
-        if curWorm.chromosome_set[0][chromNumber].getParentAtLocation(loc) == parent or curWorm.chromosome_set[1][chromNumber].getParentAtLocation(loc) == parent:
-          generation.append(curWorm)
-
-    return generation
-
+# Crosses each worm in set A with worm B until the limit number of offspring that keep the parent segment at the desired location has been met 
 def backCross(diploidASet, diploidB, physLoc, chromNumber, allele):
-  """Crosses each worm in set A with worm B until the limit number of offspring that keep the parent segment at the desired location has been met"""
   generation = []
   loc = Chromosome.getLoc(physLoc, chromNumber)
   
@@ -48,24 +32,19 @@ def backCross(diploidASet, diploidB, physLoc, chromNumber, allele):
     
   return generation
 
-def selfCross(diploidSet, physLoc, chromNumber, allele):
+def selfCross(diploidSet):
   generation = []
   loc = Chromosome.getLoc(physLoc, chromNumber)
 
   for diploid in diploidSet:
     curChild = diploid.mate(diploid)[0]
-
-    while (curChild.chromosome_set[0][chromNumber].getParentAtLocation(loc) != allele and curChild.chromosome_set[1][chromNumber].getParentAtLocation(loc) != allele):
-      curChild = diploid.mate(diploid)[0]
-
     generation.append(curChild)
 
   return generation
 
-def randomCross(diploidSet, physLoc, chromNumber, allele):
+def randomCross(diploidSet):
   generation = []
   length = len(diploidSet)
-  loc = Chromosome.getLoc(physLoc, chromNumber)
   random.seed()
 
   for i in range(length):
@@ -76,33 +55,23 @@ def randomCross(diploidSet, physLoc, chromNumber, allele):
       secondRandIndex = random.randint(0, length - 1)
 
     curChild = diploidSet[firstRandIndex].mate(diploidSet[secondRandIndex])[0]
-
-    while (curChild.chromosome_set[0][chromNumber].getParentAtLocation(loc) != allele and curChild.chromosome_set[1][chromNumber].getParentAtLocation(loc) != allele):
-      curChild = diploidSet[firstRandIndex].mate(diploidSet[secondRandIndex])[0]
-
     generation.append(curChild)
  
   return generation
 
-def circularCross(diploidSet, physLoc, chromNumber, allele):
+def circularCross(diploidSet):
   generation = []
   length = len(diploidSet)
-  loc = Chromosome.getLoc(physLoc, chromNumber)
 
   for i in range(length):
     curChild = diploidSet[i].mate(diploidSet[(i + 1) % length])[0]
-
-    while (curChild.chromosome_set[0][chromNumber].getParentAtLocation(loc) != allele and curChild.chromosome_set[1][chromNumber].getParentAtLocation(loc) != allele):
-      curChild = diploidSet[i].mate(diploidSet[(i + 1) % length])[0]
-
     generation.append(curChild)
 
   return generation
 
-def randomCrossEqualContribution(diploidSet, physLoc, chromNumber, allele):
+def randomCrossEqualContribution(diploidSet):
   generation = []
   length = len(diploidSet)
-  loc = Chromosome.getLoc(physLoc, chromNumber)
   random.seed()
   firstParentIndices = range(length)
   secondParentIndices = range(length)
@@ -118,103 +87,63 @@ def randomCrossEqualContribution(diploidSet, physLoc, chromNumber, allele):
 
   for i in range(len(firstParentIndices)):
     curChild = diploidSet[firstParentIndices[i]].mate(diploidSet[secondParentIndices[i]])[0]
-  
-    while (curChild.chromosome_set[0][chromNumber].getParentAtLocation(loc) != allele and curChild.chromosome_set[1][chromNumber].getParentAtLocation(loc) != allele):
-      curChild = diploidSet[firstParentIndices[i]].mate(diploidSet[secondParentIndices[i]])[0]
-
     generation.append(curChild)
 
   return generation
 
-def circularPairCross(diploidSet, physLoc, chromNumber, allele):
+def circularPairCross(diploidSet):
   generation = []
   length = len(diploidSet)
-  loc = Chromosome.getLoc(physLoc, chromNumber)
-
+  
   for i in range(0, length, 2):
     for j in range(2):
       curChild = diploidSet[i].mate(diploidSet[(i + 1) % length])[0]
-
-      while (curChild.chromosome_set[0][chromNumber].getParentAtLocation(loc) != allele and curChild.chromosome_set[1][chromNumber].getParentAtLocation(loc) != allele):
-        curChild = diploidSet[i].mate(diploidSet[(i + 1) % length])[0]
-
       generation.append(curChild)
     
+    # Shuffling the order of the next generation
     generation = generation[len(generation) - 1:] + generation[1:]
 
   return generation
 
-def randomPairCross(diploidSet, physLoc, chromNumber, allele):
+def randomPairCross(diploidSet):
   generation = []
   length = len(diploidSet)
-  loc = Chromosome.getLoc(physLoc, chromNumber)
   random.seed()
-  firstParentIndices = random.randint(0, length - 1, length)
-  secondParentIndices = random.randint(0, length - 1, length)
+  parentIndices = range(length)
+  random.shuffle(parentIndices)
 
-  for i in range(len(firstParent)):
-    while (firstParentIndices[i] == secondParentIndices[i]):
-      secondParentIndices[i] = random.randint(0, length - 1)
-
-  for i in range(pairLength):
-    curIndex = randint(0, length - 1)
-    curChild = diploidSet[firstParentIndices[curIndex]].mate(diploidSet[secondParentIndices[curIndex]])[0]
-
-    while (curChild.chromosome_set[0][chromNumber].getParentAtLocation(loc) != allele and curChild.chromosome_set[1][chromNumber].getParentAtLocation(loc) != allele):
-      curChild = diploidSet[firstParentIndices[curIndex]].mate(diploidSet[secondParentIndices[curIndex]])[0]
-
+  for i in range(length):
+    curIndex = random.randrange(0, length - 2, 2)
+    curChild = diploidSet[parentIndices[curIndex]].mate(diploidSet[parentIndices[curIndex + 1]])[0]
     generation.append(curChild)
 
   return generation
 
-def randomPairCrossEqualContribution(diploidSet, physLoc, chromNumber, allele):
+def randomPairCrossEqualContribution(diploidSet):
   generation = []
   length = len(diploidSet)
-  parentIndices = random.shuffle(range(length))
+  parentIndices = range(length)
+  random.shuffle(parentIndices)
 
   for i in range(length / 2):
     for j in range(2):
       curChild = diploidSet[parentIndices[i]].mate(diploidSet[parentIndices[i + 1]])[0]
-
-      while (curChild.chromosome_set[0][chromNumber].getParentAtLocation(loc) != allele and curChild.chromosome_set[1][chromNumber].getParentAtLocation(loc) != allele):
-        curChild = diploidSet[parentIndices[i]].mate(diploidSet[parentIndices[i + 1]])[0]
-
       generation.append(curChild)
 
   return generation
 
-def inbreedingAvoidanceCross(diploidSet, physLoc, chromNumber, allele):
+def inbreedingAvoidanceCross(diploidSet):
   length = len(diploidSet)
-  generation = [0 for x in range(length)]
-
-  for i in range(length):
-    j = i
-
-    for k in range(2):
-      curChild = diploidSet[i].mate(diploidSet[i + 1])
-
-      while (curChild.chromosome_set[0][chromNumber].getParentAtLocation(loc) != allele and curChild.chromosome_set[1][chromNumber].getParentAtLocation(loc) != allele):
-        curChild = diploidSet[i].mate(diploidSet[i + 1])
-
-      generation[j] = curChild
-      j = j + (length / 2)
-
-  return generation
-
-def roundRobinCrossTillLimitDiploid(diploidSet, physLoc, chromNumber, parent, limit):
   generation = []
-  loc = Chromosome.getLoc(physLoc, chromNumber)
-    
-  while (len(generation) < limit):
-    for i in range(len(diploidSet) - 1):
-      curDiploid = diploidSet[i + 1].mate(diploidSet[i])[0]
-                
-    if curDiploid.chromosome_set[0][chromNumber].getParentAtLocation(loc) == parent or curDiploid.chromosome_set[1][chromNumber].getParentAtLocation(loc) == parent:
-      generation.append(curDiploid)
-           
+
+  for k in range(2):
+    for i in range(length / 2):
+      curChild = diploidSet[i].mate(diploidSet[i + 1])[0]
+      generation.append(curChild)
+
   return generation
 
-def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, targetName, bucketSize, statFile):
+def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, targetName, statFile):
   indNumber = 1;
   genLoc = Chromosome.getLoc(physLoc, chromNumber)
   
@@ -335,6 +264,15 @@ def selectRandomSubset(diploidSet, numSelect):
   
   return toReturnSet
 
+def writeAverageBinSize(crossNumber, diploidSet, writeFile):
+  averageBinSizes = []
+
+  for diploid in diploidSet:
+    averageBinSizes.append(diploid.getAverageBinGeneticSize())
+
+  statisticsWrapper = np.array(averageBinSizes)
+  writeFile.write('%d,%f,%f\n' % (crossNumber, np.mean(statisticsWrapper), np.std(statisticsWrapper)))
+
 #Simulates a back crosses in which a particular base pair allele is held 
 def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucketSize, numRandomSelect, numIter, crossOption):
   #Opens a file that contains info about the general statistics (percentage of genome, percentage of selected chromosome) of the cross simulation
@@ -351,6 +289,12 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucke
     h = open('buckets_%d_%d_%d_%d.csv' % (physLoc, chromNumber + 1, bucketSize, numRandomSelect), 'wb')
     h.write('Number of Back Crosses,Selected Chromosome,Selected Base Pair,Bucket Size,Number Sampled,Minimum Left Base Pair, Maximum Left Base Pair,Number Left Unique Buckets,Minimum Right Base Pair, Maximum Right Base Pair,Number Right Unique Buckets\n')
   
+  if os.path.isfile('average_genetic_bin_size_%d_%d.csv' % (physLoc, chromNumber + 1)):
+    binSizeFile = open('average-genetic_bin_size_%d_%d.csv' % (physLoc, chromNumber + 1), 'a')
+  else:
+    binSizeFile = open('average_genetic_bin_size_%d_%d.csv' % (physLoc, chromNumber + 1), 'wb')   
+    binSizeFile.write('Number of Back Crosses,Average Bin Size,Bin Size Standard Deviation\n')
+
   #Runs through the number of crosses specified and makes the individuals
   diploidSet = generateHetero(numIndividuals)
         
@@ -359,14 +303,30 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucke
   genLoc = Chromosome.getLoc(physLoc, chromNumber)
 
   for k in range(crossNumber):
+    #TODO(zifanxiang): This if else ladder is disgusting
     if crossOption == 1:
       diploidSet = backCross(diploidSet, Bparent, physLoc, chromNumber, targetNameDip)
     elif crossOption == 2:
-      diploidSet = backCross(diploidSet, Bparent, physLoc, chromNumber, targetNameDip)
+      diploidSet = selfCross(diploidSet)
+    elif crossOption == 3:
+      diploidSet = circularCross(diploidSet)
+    elif crossOption == 4:
+      diploidSet = circularPairCross(diploidSet)
+    elif crossOption == 5:
+      diploidSet = inbreedingAvoidanceCross(diploidSet)
+    elif crossOption == 6:
+      diploidSet = randomCross(diploidSet)
+    elif crossOption == 7:
+      diploidSet = randomCrossEqualContribution(diploidSet)
+    elif crossOption == 8:
+      diploidSet = randomPairCross(diploidSet)
+    elif crossOption == 9:
+      diploidSet = randomPairCrossEqualContribution(diploidSet)
     else:
       diploidSet = backCross(diploidSet, Bparent, physLoc, chromNumber, targetNameDip)
     
-    writeGeneralStatistics(k + 1, physLoc, diploidSet, chromNumber, targetNameDip, bucketSize, g)
+    #writeGeneralStatistics(k + 1, physLoc, diploidSet, chromNumber, targetNameDip, g)
+    writeAverageBinSize(k + 1, diploidSet, binSizeFile)
     
     for i in range(numIter):
       physIntervals = []
@@ -377,7 +337,7 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucke
           if chrSet[chromNumber].getParentAtLocation(genLoc) == targetNameDip:
             physIntervals.append(chrSet[chromNumber].physicalLocsOfInterval(genLoc, chromNumber))
     
-      putIntervalsIntoBuckets(k + 1, chromNumber, physLoc, physIntervals, bucketSize, numRandomSelect, h)
+      #putIntervalsIntoBuckets(k + 1, chromNumber, physLoc, physIntervals, bucketSize, numRandomSelect, h)
       
     # Format of the output files is as follows: Number of Crosses_ Number Of Individuals per Cross _ Target Chromosome _ Physical Location on the Target Chromosome
     fileName = "%d_%d_%d_%d_crossConfig.csv" % (k + 1, numIndividuals, chromNumber + 1, physLoc)
