@@ -38,9 +38,9 @@ def calculateAveragePhysicalIntervals(physIntervals, physLoc, chromNumber, fileP
 
   filePath.write(',%d,%d' % (lowerIntervalAverages, upperIntervalAverages))
 
-def generateHetero(numIndividuals):
+def generateHeterozygotes(numIndividuals):
   generation = []
-  Aparent = Diploid(name = 'A', newChr = 6)
+  Aparent = Diploid(name = "A", newChr = 6)
   Bparent = Diploid(name = "B", newChr = 6)
 
   for i in range(numIndividuals):
