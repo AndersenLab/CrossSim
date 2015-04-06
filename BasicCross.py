@@ -20,6 +20,8 @@ import os.path
 import random
 import sys
 
+crossDesign = ["back_cross", "self", "circular", "circular_pair", "interbreed_avoidance", "random", "random_equal", "random_pair", "random_pair_equal"]
+
 # Crosses each worm in set A with worm B until the limit number of offspring that keep the parent segment at the desired location has been met 
 def backCross(diploidASet, diploidB, physLoc, chromNumber, allele):
   generation = []
@@ -271,7 +273,10 @@ def calcAvgBinSize(diploidSet):
   averageBinSizes = []
 
   for diploid in diploidSet:
-    averageBinSizes.append(diploid.getAverageBinGeneticSize())
+    averageGeneticBinSizes = diploid.getAverageBinGeneticSizes()
+
+    for size in averageGeneticBinSizes:
+      averageBinSizes.append(size)
 
   return averageBinSizes
 
@@ -322,16 +327,16 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucke
     h = open('buckets_%d_%d_%d_%d.csv' % (physLoc, chromNumber + 1, bucketSize, numRandomSelect), 'wb')
     h.write('Number of Back Crosses,Selected Chromosome,Selected Base Pair,Bucket Size,Number Sampled,Minimum Left Base Pair, Maximum Left Base Pair,Number Left Unique Buckets,Minimum Right Base Pair, Maximum Right Base Pair,Number Right Unique Buckets\n')
   
-  if os.path.isfile('average_genetic_bin_size_%d_%d.csv' % (physLoc, chromNumber + 1)):
-    binSizeFile = open('average_genetic_bin_size_%d_%d.csv' % (physLoc, chromNumber + 1), 'a')
+  if os.path.isfile('average_genetic_bin_size_%d_%d_%s.csv' % (physLoc, chromNumber + 1, crossDesign[crossOption - 1])):
+    binSizeFile = open('average_genetic_bin_size_%d_%d_%s.csv' % (physLoc, chromNumber + 1, crossDesign[crossOption - 1]), 'a')
   else:
-    binSizeFile = open('average_genetic_bin_size_%d_%d.csv' % (physLoc, chromNumber + 1), 'wb')   
+    binSizeFile = open('average_genetic_bin_size_%d_%d_%s.csv' % (physLoc, chromNumber + 1, crossDesign[crossOption - 1]), 'wb')   
     binSizeFile.write('Number of Back Crosses,Average Bin Size,Bin Size Standard Deviation\n')
 
-  if os.path.isfile('genetic_drift_%d_%d_%d.csv' % (physLoc, chromNumber + 1, numIndividuals)):
-    geneticDriftFile = open('genetic_drift_%d_%d_%d.csv' % (physLoc, chromNumber + 1, numIndividuals))
+  if os.path.isfile('genetic_drift_%d_%d_%d_%s.csv' % (physLoc, chromNumber + 1, numIndividuals, crossDesign[crossOption - 1])):
+    geneticDriftFile = open('genetic_drift_%d_%d_%d_%s.csv' % (physLoc, chromNumber + 1, numIndividuals, crossDesign[crossOption - 1]))
   else:
-    geneticDriftFile = open('genetic_drift_%d_%d_%d.csv' % (physLoc, chromNumber + 1, numIndividuals), 'wb')
+    geneticDriftFile = open('genetic_drift_%d_%d_%d_%s.csv' % (physLoc, chromNumber + 1, numIndividuals, crossDesign[crossOption - 1]), 'wb')
     geneticDriftFile.write('Number of Back Crosses,A Genetic Drift, B Genetic Drift,A Stand Dev,B Stand Dev\n')
 
   #Runs through the number of crosses specified and makes the individuals
@@ -397,17 +402,16 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucke
     # Format of the output files is as follows: Number of Crosses_ Number Of Individuals per Cross _ Target Chromosome _ Physical Location on the Target Chromosome
     fileName = "%d_%d_%d_%d_crossConfig.csv" % (k + 1, numIndividuals, chromNumber + 1, physLoc)
   
-    truncAparentSet = selectRandomSubset(diploidSet, numRandomSelect)    
-    writeGroupSegments(fileName, truncAparentSet)
+    #truncAparentSet = selectRandomSubset(diploidSet, numRandomSelect)    
+    #writeGroupSegments(fileName, truncAparentSet)
 
   g.close()
   binSizeFile.close()
 
-  #aGeneticDrifts[:] = [abs(x - 50.0) for x in aGeneticDrifts]
-  #for i in range(len(aGeneticDrifts[0])):
-  #  print(aGeneticDrifts[0][i])
+  plt.boxplot(aGeneticDrifts)
+  plt.show()
 
-  plt.boxplot(aGeneticDrifts);
+  plt.boxplot(crossBinSizes)
   plt.show()
 
 #Parameters: physLoc chromNumber numCrosses numIndividuals bucketSize numRandomSelect numIter

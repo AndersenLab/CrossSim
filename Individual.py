@@ -109,15 +109,21 @@ class Diploid(object):
                
         return totalPercentage / (len(self.chromosome_set) * (self.nChr - 1))   
 
-    def getAverageBinGeneticSize(self):
-      averageBinGeneticSize = 0.0
+    def getAverageBinGeneticSizes(self):
+      averageBinGeneticSizes = []
 
       for i in range(len(self.chromosome_set)):
         for j in range(self.nChr):
-          curSegs = self.chromosome_set[i][j].segments
-          averageBinGeneticSize += cM_max[j] / len(curSegs)
+          curChromosome = self.chromosome_set[i][j]
+          lengthGeneticSizes = curChromosome.getLengthGeneticSizes(j)
+          lengthSumSquared = 0.0
 
-      return averageBinGeneticSize / (len(self.chromosome_set) * self.nChr) 
+          for k in range(len(lengthGeneticSizes)):
+            lengthSumSquared += lengthGeneticSizes[k] * lengthGeneticSizes[k]
+
+          averageBinGeneticSizes.append(lengthSumSquared / cM_max[j])
+
+      return averageBinGeneticSizes 
 
 class Haploid(object):
     """Haploid individual, monoecious"""

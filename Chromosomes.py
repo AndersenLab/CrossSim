@@ -127,10 +127,10 @@ class Chromosome(object):
     
     def getParentAtLocation(self, loc):
         """gets the Parental Identity for a chromosomal location"""
-        if loc < 0.0 or loc > 1.0:
+        if loc < 0.0 or loc > 1.01:
             raise ValueError, "Location must be in range [0,1]"
-	if loc == 0.0:
-          return self.segments[0][1]
+        if loc == 0.0:
+            return self.segments[0][1]
             
         i = 0
         while i < len(self.segments) and self.segments[i][0] < loc:
@@ -272,6 +272,20 @@ class Chromosome(object):
 	        upperBound = 1
         
         return [int(Chromosome.getPhysDistanceFromLoc(lowerBound, chromNumber)), int(Chromosome.getPhysDistanceFromLoc(upperBound, chromNumber))]
+
+    def getLengthGeneticSizes(self, chromNumber):
+        seg = list(self.segments)
+        lengthGeneticSizes = []
+
+        for i in range(1, len(seg)):
+            locSize = seg[i][0] - seg[i - 1][0]
+            geneticSize = locSize * cM_max[chromNumber]
+            lengthGeneticSizes.append(geneticSize)
+
+        locSize = 1.0 - seg[len(seg) - 1][0]
+        lengthGeneticSizes.append(locSize * cM_max[chromNumber])
+
+        return lengthGeneticSizes
         
 if __name__ == '__main__':
     #x = Chromosome.getLoc(15072, 0)
