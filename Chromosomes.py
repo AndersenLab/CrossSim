@@ -280,7 +280,7 @@ class Chromosome(object):
         for i in range(1, len(seg)):
             locSize = seg[i][0] - seg[i - 1][0]
             geneticSize = locSize * cM_max[chromNumber]
-            lengthGeneticSizes.append(geneticSize)
+            lengthGeneticSizes.append(locSize)
 
         locSize = 1.0 - seg[len(seg) - 1][0]
         lengthGeneticSizes.append(locSize * cM_max[chromNumber])
