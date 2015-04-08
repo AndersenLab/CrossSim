@@ -13,14 +13,11 @@ from Individual import *
 from WormUtils import *
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 import operator
 import os.path
 import random
 import sys
-
-crossDesign = ["back_cross", "self", "circular", "circular_pair", "interbreed_avoidance", "random", "random_equal", "random_pair", "random_pair_equal"]
 
 # Crosses each worm in set A with worm B until the limit number of offspring that keep the parent segment at the desired location has been met 
 def backCross(diploidASet, diploidB, physLoc, chromNumber, allele):
@@ -37,118 +34,7 @@ def backCross(diploidASet, diploidB, physLoc, chromNumber, allele):
     
   return generation
 
-def selfCross(diploidSet):
-  generation = []
-  loc = Chromosome.getLoc(physLoc, chromNumber)
-
-  for diploid in diploidSet:
-    curChild = diploid.mate(diploid)[0]
-    generation.append(curChild)
-
-  return generation
-
-def randomCross(diploidSet):
-  generation = []
-  length = len(diploidSet)
-  random.seed()
-
-  for i in range(length):
-    firstRandIndex = random.randint(0, length - 1)
-    secondRandIndex = random.randint(0, length - 1)
-
-    while (secondRandIndex == firstRandIndex):
-      secondRandIndex = random.randint(0, length - 1)
-
-    curChild = diploidSet[firstRandIndex].mate(diploidSet[secondRandIndex])[0]
-    generation.append(curChild)
- 
-  return generation
-
-def circularCross(diploidSet):
-  generation = []
-  length = len(diploidSet)
-
-  for i in range(length):
-    curChild = diploidSet[i].mate(diploidSet[(i + 1) % length])[0]
-    generation.append(curChild)
-
-  return generation
-
-def randomCrossEqualContribution(diploidSet):
-  generation = []
-  length = len(diploidSet)
-  random.seed()
-  firstParentIndices = range(length)
-  secondParentIndices = range(length)
-  random.shuffle(firstParentIndices)
-  random.shuffle(secondParentIndices)
-
-  for i in range(len(firstParentIndices)):
-    if (firstParentIndices[i] == secondParentIndices[i]):
-      j = i + 1
-      temp = secondParentIndices[j % len(secondParentIndices)]
-      secondParentIndices[j % len(secondParentIndices)] = secondParentIndices[i]
-      secondParentIndices[i] = temp
-
-  for i in range(len(firstParentIndices)):
-    curChild = diploidSet[firstParentIndices[i]].mate(diploidSet[secondParentIndices[i]])[0]
-    generation.append(curChild)
-
-  return generation
-
-def circularPairCross(diploidSet):
-  generation = []
-  length = len(diploidSet)
-  
-  for i in range(0, length, 2):
-    for j in range(2):
-      curChild = diploidSet[i].mate(diploidSet[(i + 1) % length])[0]
-      generation.append(curChild)
-    
-    # Shuffling the order of the next generation
-    generation = generation[len(generation) - 1:] + generation[0:len(generation) - 1];
-
-  return generation
-
-def randomPairCross(diploidSet):
-  generation = []
-  length = len(diploidSet)
-  random.seed()
-  parentIndices = range(length)
-  random.shuffle(parentIndices)
-
-  for i in range(length):
-    curIndex = random.randrange(0, length - 2, 2)
-    curChild = diploidSet[parentIndices[curIndex]].mate(diploidSet[parentIndices[curIndex + 1]])[0]
-    generation.append(curChild)
-
-  return generation
-
-def randomPairCrossEqualContribution(diploidSet):
-  generation = []
-  length = len(diploidSet)
-  parentIndices = range(length)
-  random.shuffle(parentIndices)
-
-  for i in range(length / 2):
-    for j in range(2):
-      curChild = diploidSet[parentIndices[i]].mate(diploidSet[parentIndices[i + 1]])[0]
-      generation.append(curChild)
-
-  return generation
-
-def inbreedingAvoidanceCross(diploidSet):
-  length = len(diploidSet)
-  generation = []
-
-  for k in range(2):
-    for i in range(length / 2):
-      curChild = diploidSet[i].mate(diploidSet[i + 1])[0]
-      generation.append(curChild)
-
-  return generation
-
-def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, targetName, statFile):
+def writeGeneralStatistics(numCrosses, physLoc, diploidSet, targetChrom, targetName, statFile):
   indNumber = 1;
   genLoc = Chromosome.getLoc(physLoc, chromNumber)
   
@@ -173,7 +59,7 @@ def writeGeneralStatistics(crossNumber, physLoc, diploidSet, targetChrom, target
     avgLower = totalLower / len(curIntervals)
     avgUpper = totalUpper / len(curIntervals)
     avgSelected = totalSelected / 2
-    statFile.write('%d,%d,%d,%d,%f,%f,%d,%d\n' % (crossNumber, indNumber, targetChrom + 1, physLoc, avgSelected, perGenome, avgLower, avgUpper))
+    statFile.write('%d,%d,%d,%d,%f,%f,%d,%d\n' % (numCrosses, indNumber, targetChrom + 1, physLoc, avgSelected, perGenome, avgLower, avgUpper))
     indNumber += 1
 
 #Takes in the general statistics file and writes summary statistics on a particular generation of the back cross    
@@ -269,53 +155,13 @@ def selectRandomSubset(diploidSet, numSelect):
   
   return toReturnSet
 
-# Uses Individual.py's getAverageBinGeneticSizes method, which calculates the average bin sizes (interval) in
-# centimorgans (converts the genetic location between 0 to 1 through the centimorgan lengths of the chromosomes)
-def calcAvgBinSize(diploidSet):
-  averageBinSizes = []
-
-  for diploid in diploidSet:
-    averageGeneticBinSizes = diploid.getAverageBinGeneticSizes()
-
-    for size in averageGeneticBinSizes:
-      averageBinSizes.append(size)
-
-  return averageBinSizes
-
-def writeGeneralBinSize(crossNumber, averageBinSizes, writeFile):
-  statisticsWrapper = np.array(averageBinSizes)
-  writeFile.write('%d,%f,%f\n' % (crossNumber, np.mean(statisticsWrapper), np.std(statisticsWrapper)))
-
-def calcGeneticDrift(chromNumber, randomMarkerLocs, diploidSet, targetAllele):
-  geneticDrifts = []
-
-  for randomMarkerLoc in randomMarkerLocs:
-    curDrifts = []
-    loc = Chromosome.getLoc(randomMarkerLoc, chromNumber)
-    for diploid in diploidSet:
-      count = 0
-    
-      for chrSet in diploid.chromosome_set:
-        if chrSet[chromNumber].getParentAtLocation(loc) == targetAllele:
-          count += 1
-
-      curDrifts.append(float(count) / 2)
-        
-    geneticDrifts.append(abs(np.mean(np.array(curDrifts)) - 0.5))
-    
-  return geneticDrifts
-
-def writeGeneticDrifts(crossNumber, geneticDrifts, writeFile):
-  driftWrapper = np.array(geneticDrifts)
-  writeFile.write('%d,%f,%f,%f\n' % (crossNumber, np.mean(driftWrapper), np.median(driftWrapper), np.std(driftWrapper)))
-
 #Simulates a back crosses in which a particular base pair allele is held 
-def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucketSize, numRandomSelect, numIter, crossOption):
+def backCrossSimulation(physLoc, chromNumber, numCrosses, numIndividuals, bucketSize, numRandomSelect, numIter):
   #Opens a file that contains info about the general statistics (percentage of genome, percentage of selected chromosome) of the cross simulation
-  if os.path.isfile('general_statistics_%d_%d.csv' % (physLoc, chromNumber + 1)):
-    generalStatisticsFile = open('general_statistics_%d_%d.csv' % (physLoc, chromNumber + 1), 'a')
+  if os.path.isfile('general_statistics_%d_%d_%d.csv' % (physLoc, chromNumber + 1, numCrosses)):
+    generalStatisticsFile = open('general_statistics_%d_%d_%d.csv' % (physLoc, chromNumber + 1, numCrosses), 'a')
   else:
-    generalStatisticsFile = open('general_statistics_%d_%d.csv' % (physLoc, chromNumber + 1), 'wb')
+    generalStatisticsFile = open('general_statistics_%d_%d_%d.csv' % (physLoc, chromNumber + 1, numCrosses), 'wb')
     generalStatisticsFile.write('Number of Back Crosses,Individual Number,Selected Chromosome,Selected Base Pair,Percent Selected Chromosome,Percent Genome,Left Physical Loc,Right Physical Loc\n')
   
   #Opens a file that contains the info about the number of unique intervals  
@@ -324,18 +170,6 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucke
   else:
     h = open('buckets_%d_%d_%d_%d.csv' % (physLoc, chromNumber + 1, bucketSize, numRandomSelect), 'wb')
     h.write('Number of Back Crosses,Selected Chromosome,Selected Base Pair,Bucket Size,Number Sampled,Minimum Left Base Pair, Maximum Left Base Pair,Number Left Unique Buckets,Minimum Right Base Pair, Maximum Right Base Pair,Number Right Unique Buckets\n')
-  
-  if os.path.isfile('average_genetic_bin_size_%d_%d_%s.csv' % (physLoc, chromNumber + 1, crossDesign[crossOption - 1])):
-    binSizeFile = open('average_genetic_bin_size_%d_%d_%s.csv' % (physLoc, chromNumber + 1, crossDesign[crossOption - 1]), 'a')
-  else:
-    binSizeFile = open('average_genetic_bin_size_%d_%d_%s.csv' % (physLoc, chromNumber + 1, crossDesign[crossOption - 1]), 'wb')   
-    binSizeFile.write('Number of Back Crosses,Average Bin Size,Bin Size Standard Deviation\n')
-
-  if os.path.isfile('genetic_drift_%d_%d_%d_%s.csv' % (physLoc, chromNumber + 1, numIndividuals, crossDesign[crossOption - 1])):
-    geneticDriftFile = open('genetic_drift_%d_%d_%d_%s.csv' % (physLoc, chromNumber + 1, numIndividuals, crossDesign[crossOption - 1]))
-  else:
-    geneticDriftFile = open('genetic_drift_%d_%d_%d_%s.csv' % (physLoc, chromNumber + 1, numIndividuals, crossDesign[crossOption - 1]), 'wb')
-    geneticDriftFile.write('Number of Back Crosses,A Genetic Drift, B Genetic Drift,A Stand Dev,B Stand Dev\n')
 
   #Runs through the number of crosses specified and makes the individuals
   diploidSet = generateHeterozygotes(numIndividuals)
@@ -344,44 +178,11 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucke
   #Use the generated heterozyogtes for AIL simulations
   Bparent = Diploid(name = "B", newChr = 6)
   targetNameDip = "A"
-  targetAllele = 'A' if random.randint(0, 1)  == 0 else 'B'
   genLoc = Chromosome.getLoc(physLoc, chromNumber)
-  crossBinSizes = []
-  geneticDrifts = []
-  randomMarkerLocs = []
 
-  for i in range(100):
-    randomMarkerLocs.append(random.randint(0, chromosome_phys_max[chromNumber] - 1))
-
-  for k in range(crossNumber):
-    #TODO(zifanxiang): This if else ladder is disgusting
-    if crossOption == 1:
-      diploidSet = backCross(diploidSet, Bparent, physLoc, chromNumber, targetNameDip)
-    elif crossOption == 2:
-      diploidSet = selfCross(diploidSet)
-    elif crossOption == 3:
-      diploidSet = circularCross(diploidSet)
-    elif crossOption == 4:
-      diploidSet = circularPairCross(diploidSet)
-    elif crossOption == 5:
-      diploidSet = inbreedingAvoidanceCross(diploidSet)
-    elif crossOption == 6:
-      diploidSet = randomCross(diploidSet)
-    elif crossOption == 7:
-      diploidSet = randomCrossEqualContribution(diploidSet)
-    elif crossOption == 8:
-      diploidSet = randomPairCross(diploidSet)
-    elif crossOption == 9:
-      diploidSet = randomPairCrossEqualContribution(diploidSet)
-    
-    #writeGeneralStatistics(k + 1, physLoc, diploidSet, chromNumber, targetNameDip, generalStatisticsFile)
-    curAvgBinSizes = calcAvgBinSize(diploidSet)
-    crossBinSizes.append(curAvgBinSizes)
-    writeGeneralBinSize(k + 1, curAvgBinSizes, binSizeFile)
-
-    geneticDrifts.append(calcGeneticDrift(chromNumber, randomMarkerLocs, diploidSet, targetAllele))
-    writeGeneticDrifts(k + 1, geneticDrifts, geneticDriftFile)
-    
+  for k in range(numCrosses):
+    diploidSet = backCross(diploidSet, Bparent, physLoc, chromNumber, targetNameDip)
+        
     for i in range(numIter):
       physIntervals = []
       sampleSet = selectRandomSubset(diploidSet, numRandomSelect);
@@ -391,82 +192,16 @@ def backCrossSimulation(physLoc, chromNumber, crossNumber, numIndividuals, bucke
           if chrSet[chromNumber].getParentAtLocation(genLoc) == targetNameDip:
             physIntervals.append(chrSet[chromNumber].physicalLocsOfInterval(genLoc, chromNumber))
     
-      #putIntervalsIntoBuckets(k + 1, chromNumber, physLoc, physIntervals, bucketSize, numRandomSelect, h)
+      putIntervalsIntoBuckets(k + 1, chromNumber, physLoc, physIntervals, bucketSize, numRandomSelect, h)
       
     # Format of the output files is as follows: Number of Crosses_ Number Of Individuals per Cross _ Target Chromosome _ Physical Location on the Target Chromosome
     fileName = "%d_%d_%d_%d_crossConfig.csv" % (k + 1, numIndividuals, chromNumber + 1, physLoc)
   
-    #truncAparentSet = selectRandomSubset(diploidSet, numRandomSelect)    
-    #writeGroupSegments(fileName, truncAparentSet)
+    truncAparentSet = selectRandomSubset(diploidSet, numRandomSelect)    
+    writeGroupSegments(fileName, truncAparentSet)
+    writeGeneralStatistics(k + 1, physLoc, diploidSet, chromNumber, targetNameDip, generalStatisticsFile)
 
   generalStatisticsFile.close()
-  binSizeFile.close()
-
-  plt.boxplot(geneticDrifts)
-  plt.xlabel("Number of crosses")
-  plt.ylabel("Deviation from 50 Percent")
-  plt.show()
-
-  plt.boxplot(crossBinSizes)
-  plt.xlabel("Number of crosses")
-  plt.ylabel("Bin Size (kB)")
-  plt.show()
-
-def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numIter, crossOption):
-  if os.path.isfile('average_genetic_bin_size_%d_%d_%s.csv' % (physLoc, chromNumber + 1, crossDesign[crossOption - 1])):
-    binSizeFile = open('average_genetic_bin_size_%d_%d_%s.csv' % (physLoc, chromNumber + 1, crossDesign[crossOption - 1]), 'a')
-  else:
-    binSizeFile = open('average_genetic_bin_size_%d_%d_%s.csv' % (physLoc, chromNumber + 1, crossDesign[crossOption - 1]), 'wb')   
-    binSizeFile.write('Number of Back Crosses,Average Bin Size,Bin Size Standard Deviation\n')
-
-  if os.path.isfile('genetic_drift_%d_%d_%d_%s.csv' % (physLoc, chromNumber + 1, numIndividuals, crossDesign[crossOption - 1])):
-    geneticDriftFile = open('genetic_drift_%d_%d_%d_%s.csv' % (physLoc, chromNumber + 1, numIndividuals, crossDesign[crossOption - 1]))
-  else:
-    geneticDriftFile = open('genetic_drift_%d_%d_%d_%s.csv' % (physLoc, chromNumber + 1, numIndividuals, crossDesign[crossOption - 1]), 'wb')
-    geneticDriftFile.write('Number of Back Crosses,A Genetic Drift, B Genetic Drift,A Stand Dev,B Stand Dev\n')
-
-  targetAllele = 'A' if random.randint(0, 1)  == 0 else 'B'
-  crossBinSizes = [[] for x in range(numCrosses)]
-  geneticDrifts = [[] for x in range(numCrosses)]
-  randomMarkerLocs = []
-
-  for i in range(100):
-    randomMarkerLocs.append(random.randint(0, chromosome_phys_max[chromNumber] - 1))
-
-  for i in range(numIter):
-    diploidSet = generateHeterozygotes(numIndividuals)
-  
-    for j in range(numCrosses):
-      if crossOption == 2:
-        diploidSet = selfCross(diploidSet)
-      elif crossOption == 3:
-        diploidSet = circularCross(diploidSet)
-      elif crossOption == 4:
-        diploidSet = circularPairCross(diploidSet)
-      elif crossOption == 5:
-        diploidSet = inbreedingAvoidanceCross(diploidSet)
-      elif crossOption == 6:
-        diploidSet = randomCross(diploidSet)
-      elif crossOption == 7:
-        diploidSet = randomCrossEqualContribution(diploidSet)
-      elif crossOption == 8:
-        diploidSet = randomPairCross(diploidSet)
-      elif crossOption == 9:
-        diploidSet = randomPairCrossEqualContribution(diploidSet)
-
-      curAvgBinSizes = calcAvgBinSize(diploidSet)
-      crossBinSizes[j].append(np.mean(np.array(curAvgBinSizes)))
-      geneticDrifts[j].append(np.mean(np.array(calcGeneticDrift(chromNumber, randomMarkerLocs, diploidSet, targetAllele))))
-
-  plt.boxplot(geneticDrifts)
-  plt.xlabel("Number of Crosses")
-  plt.ylabel("Deviation from 50 Percent")
-  plt.show()
-
-  plt.boxplot(crossBinSizes)
-  plt.xlabel("Number of Crosses")
-  plt.ylabel("Bin Size (cM)")
-  plt.show()
 
 #Parameters: physLoc chromNumber numCrosses numIndividuals bucketSize numRandomSelect numIter
 if __name__ == '__main__':
@@ -477,9 +212,5 @@ if __name__ == '__main__':
   bucketSize = int(sys.argv[5])
   numRandomSelect = int(sys.argv[6])
   numIter = int(sys.argv[7])
-  crossOption = int(sys.argv[8])
-  
-  if crossOption == 1:
-    backCrossSimulation(physLoc, chromNumber, numCrosses, numIndividuals, bucketSize, numRandomSelect, numIter, crossOption)
-  else:
-    recombinantInbredLinesSimulation(numIndividuals, numCrosses, numIter, crossOption)
+
+  backCrossSimulation(physLoc, chromNumber, numCrosses, numIndividuals, bucketSize, numRandomSelect, numIter)
