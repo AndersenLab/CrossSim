@@ -125,6 +125,16 @@ class Diploid(object):
 
       return expectedBinGeneticSizes 
 
+    def getNumBreakpoints(self):
+      breakpoints = 0
+
+      for i in range(len(self.chromosome_set)):
+        for j in range(self.nChr):
+          curChromosome = self.chromosome_set[i][j]
+          breakpoints = breakpoints + curChromosome.getNumBreakpoints()
+
+      return breakpoints
+
 class Haploid(object):
     """Haploid individual, monoecious"""
     def __init__(self, name = None, chromosomes = None, newChr = None, cM = 200, chrNames = None):

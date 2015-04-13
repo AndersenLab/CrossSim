@@ -132,7 +132,7 @@ def inbreedingAvoidanceCross(diploidSet):
 
   return generation
 
-# Uses Individual.py's getAverageBinGeneticSizes method, which calculates the average bin sizes (interval) in
+# Uses Individual.py's getExpectedBinGeneticSizes method, which calculates the average bin sizes (interval) in
 # centimorgans (converts the genetic location between 0 to 1 through the centimorgan lengths of the chromosomes)
 def calcExpectedBinSize(diploidSet):
   averageBinSizes = []
@@ -145,6 +145,7 @@ def calcExpectedBinSize(diploidSet):
 
   return averageBinSizes
 
+# Calculates the percent deviation from 50% of a chromosome at a particular location
 def calcGeneticDrift(chromNumber, randomMarkerLocs, diploidSet, targetAllele):
   geneticDrifts = []
 
@@ -164,6 +165,15 @@ def calcGeneticDrift(chromNumber, randomMarkerLocs, diploidSet, targetAllele):
     
   return geneticDrifts
 
+# Calculates the number breakpoints present in all of the chromosomes in the generation
+def calcActualBreakpoints(diploidSet):
+  numBreakpoints = 0
+
+  for diploid in diploidSet:
+    numBreakpoints = numBreakpoints + diploid.getNumBreakpoints()
+
+  return numBreakpoints
+
 def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, numIter, crossOption):
   if os.path.isfile('average_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1])):
     binSizeFile = open('average_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]), 'a')
@@ -180,10 +190,11 @@ def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, num
   targetAllele = 'A' if random.randint(0, 1)  == 0 else 'B'
   crossBinSizes = [[] for x in range(4, numCrosses + 1, 2)]
   geneticDrifts = [[] for x in range(4, numCrosses + 1, 2)]
+  mapExpansions = [[] for x in range(4, numCrosses + 1, 2)]
   randomMarkerLocs = []
   chromNumber = random.randint(0, 5)
 
-  for i in range(10):
+  for i in range(1):
     randomMarkerLocs.append(random.randint(0, chromosome_phys_max[chromNumber] - 1))
 
   z = 0
@@ -213,20 +224,32 @@ def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, num
         diploidSet = selfCross(diploidSet)
 
       curAvgBinSizes = calcExpectedBinSize(diploidSet)
+      expectedNumBreakpoints = (float(numIndividuals) / 4) * ((k / 2) + (pow(2, numSelfing) - 1) / (pow(2, numSelfing))) 
       crossBinSizes[z].append(np.mean(np.array(curAvgBinSizes)))
       geneticDrifts[z].append(np.mean(np.array(calcGeneticDrift(chromNumber, randomMarkerLocs, diploidSet, targetAllele))))
+      mapExpansions[z].append(calcActualBreakpoints(diploidSet) / expectedNumBreakpoints)
 
     z = z + 1
 
   plt.boxplot(geneticDrifts)
   plt.xlabel("Number of Crosses")
   plt.ylabel("Deviation from 50 Percent")
-  plt.xticks(range(4, numCrosses + 1, 2))
+  plt.title("Genetic Drift")
+  plt.xticks(np.arange(1, len(range(4, numCrosses + 1))), range(4, numCrosses + 1, 2))
   plt.show()
 
   plt.boxplot(crossBinSizes)
   plt.xlabel("Number of Crosses")
   plt.ylabel("Bin Size (cM)")
+  plt.title("Bin Size")
+  plt.xticks(np.arange(1, len(range(4, numCrosses + 1))), range(4, numCrosses + 1, 2))
+  plt.show()
+
+  plt.boxplot(mapExpansions)
+  plt.xlabel("Number of Crosses")
+  plt.ylabel("Map Expansion Relative to Infinite Population Case")
+  plt.title("Map Expansion")
+  plt.xticks(np.arange(1, len(range(4, numCrosses + 1))), range(4, numCrosses + 1, 2))
   plt.show()
 
 if __name__ == '__main__':

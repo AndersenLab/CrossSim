@@ -286,6 +286,9 @@ class Chromosome(object):
         lengthGeneticSizes.append(locSize * cM_max[chromNumber])
 
         return lengthGeneticSizes
+
+    def getNumBreakpoints(self):
+        return len(list(self.segments)) - 1
         
 if __name__ == '__main__':
     #x = Chromosome.getLoc(15072, 0)
