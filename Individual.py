@@ -96,8 +96,7 @@ class Diploid(object):
                   in itertools.izip(positions, allelesA, allelesB)]
           genotype += loci
       return genotype      
-                  
-    
+
     #TODO(zifanxiang): refactor to use the getPercentage of selected chromosome method
     def getPercentageOfGenome(self, parentName, chromNumber):
         totalPercentage = 0
@@ -124,6 +123,15 @@ class Diploid(object):
           expectedBinGeneticSizes.append(lengthSumSquared / cM_max[j])
 
       return expectedBinGeneticSizes 
+
+    def getNumAllele(self, chromNumber, targetAllele, targetLoc):
+      count = 0
+
+      for chromosome in self.chromosome_set:
+        if chromosome[chromNumber].getParentAtLocation(targetLoc) == targetAllele:
+          count = count + 1
+
+      return count
 
     def getNumBreakpoints(self):
       breakpoints = 0

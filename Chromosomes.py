@@ -11,6 +11,7 @@ from WormUtils import *
 import itertools
 import operator
 
+# Used in recombine if interference does not equal complete
 def generateBreaksPoisson(cM = 200):
     breaks = random.uniform(size = random.poisson(cM/100.0))
     breaks.sort()
@@ -297,8 +298,12 @@ if __name__ == '__main__':
     #print(y)
     #z = Chromosome.getPhysDistanceFromLoc(.5, 1)
     #print(z)
-    u = Chromosome.getPhysDistance(47.0507, 0)
-    print(u)
+    print random.poisson(2)
+    a = Chromosome(newParent = 'A', interference = "complete")
+    b = Chromosome(newParent = 'B', interference = "complete")
+    chroms = a.recombine(b)
+    print chroms[0].segments
+    print chroms[1].segments
     #a = Chromosome(newParent = "Blue")
     #b = Chromosome(segments = [(0,1)])
     #newChrs = a.recombine(b)

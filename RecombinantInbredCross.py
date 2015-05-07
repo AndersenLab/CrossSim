@@ -12,6 +12,8 @@ from CrossUtils import *
 from Individual import *
 from WormUtils import *
 
+from datetime import datetime
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -19,6 +21,7 @@ import operator
 import os.path
 import random
 import sys
+import threading
 
 crossDesign = ["self", "circular", "circular_pair", "interbreed_avoidance", "random", "random_equal", "random_pair", "random_pair_equal"]
 
@@ -146,19 +149,14 @@ def calcExpectedBinSize(diploidSet):
   return averageBinSizes
 
 # Calculates the percent deviation from 50% of a chromosome at a particular location
-def calcGeneticDrift(chromNumber, randomMarkerLocs, diploidSet, targetAllele):
+def calcGeneticDrift(diploidSet, chromNumber, randomMarkerLocs, targetAllele):
   geneticDrifts = []
 
   for randomMarkerLoc in randomMarkerLocs:
     curDrifts = []
     loc = Chromosome.getLoc(randomMarkerLoc, chromNumber)
     for diploid in diploidSet:
-      count = 0
-    
-      for chrSet in diploid.chromosome_set:
-        if chrSet[chromNumber].getParentAtLocation(loc) == targetAllele:
-          count += 1
-
+      count = diploid.getNumAllele(chromNumber, targetAllele, loc)
       curDrifts.append(float(count) / 2)
         
     geneticDrifts.append(abs(np.mean(np.array(curDrifts)) - 0.5))
@@ -174,6 +172,43 @@ def calcActualBreakpoints(diploidSet):
 
   return numBreakpoints
 
+def simulateRecombinantInbredCross(crossBinSizes, geneticDrifts, mapExpansions, numSelfing, k, crossOption, chromNumber, randomMarkerLocs, targetAllele, z):
+  diploidSet = generateHeterozygotes(numIndividuals)
+
+  for j in range(k):
+    if crossOption == 1:
+      diploidSet = selfCross(diploidSet)
+    elif crossOption == 2:
+      diploidSet = circularCross(diploidSet)
+    elif crossOption == 3:
+      diploidSet = circularPairCross(diploidSet)
+    elif crossOption == 4:
+      diploidSet = inbreedingAvoidanceCross(diploidSet)
+    elif crossOption == 5:
+      diploidSet = randomCross(diploidSet)
+    elif crossOption == 6:
+      diploidSet = randomCrossEqualContribution(diploidSet)
+    elif crossOption == 7:
+      diploidSet = randomPairCross(diploidSet)
+    elif crossOption == 8:
+      diploidSet = randomPairCrossEqualContribution(diploidSet)
+
+    for j in range(numSelfing):
+      diploidSet = selfCross(diploidSet)
+
+      curAvgBinSizes = np.array(calcExpectedBinSize(diploidSet))
+      curAvgBinSize = np.mean(curAvgBinSizes)
+      curAvgBinSizeStd = np.std(curAvgBinSizes)
+      curGeneticDrifts = np.array(calcGeneticDrift(diploidSet, chromNumber, randomMarkerLocs, targetAllele))
+      curGeneticDrift = np.mean(curGeneticDrifts)
+      curGeneticDriftStd = np.std(curGeneticDrifts)
+      expectedNumBreakpoints = (float(numIndividuals) / 4) * ((k / 2) + (pow(2, numSelfing) - 1) / (pow(2, numSelfing))) 
+      crossBinSizes[z].append(curAvgBinSize)
+      geneticDrifts[z].append(np.mean(np.array(calcGeneticDrift(diploidSet, chromNumber, randomMarkerLocs, targetAllele))))
+      mapExpansions[z].append(calcActualBreakpoints(diploidSet) / expectedNumBreakpoints)
+
+  print threading.currentThread().getName(), "Exiting"
+
 def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, numIter, crossOption):
   if os.path.isfile('average_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1])):
     binSizeFile = open('average_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]), 'a')
@@ -185,8 +220,15 @@ def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, num
     geneticDriftFile = open('genetic_drift_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]))
   else:
     geneticDriftFile = open('genetic_drift_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]), 'wb')
-    geneticDriftFile.write('Number of Back Crosses,A Genetic Drift, B Genetic Drift,A Stand Dev,B Stand Dev\n')
+    geneticDriftFile.write('Number of Back Crosses,Genetic Drift,Standard Deviation\n')
 
+  if os.path.isfile('map_expansion_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1])):
+    mapExpansionFile = open('map_expansion_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]), 'a')
+  else:
+    mapExpansionFile = open('map_expansion_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]), 'wb')   
+    mapExpansionFile.write('Number of Back Crosses,Map Expansion Ratio,Standard Deviation\n')
+
+  start = datetime.now()
   targetAllele = 'A' if random.randint(0, 1)  == 0 else 'B'
   crossBinSizes = [[] for x in range(4, numCrosses + 1, 2)]
   geneticDrifts = [[] for x in range(4, numCrosses + 1, 2)]
@@ -198,51 +240,44 @@ def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, num
     randomMarkerLocs.append(random.randint(0, chromosome_phys_max[chromNumber] - 1))
 
   z = 0
+  # Outer loop runs through the different number of crosses, k represents the number of crosses in the RIAIL
+  #for k in range(4, numCrosses + 1, 2):
+    #threads = []
+    #for i in range(numIter):
+    #  t = threading.Thread(target=simulateRecombinantInbredCross, args=(crossBinSizes, geneticDrifts, mapExpansions, numSelfing, k, crossOption, chromNumber, randomMarkerLocs, targetAllele, z))
+    #  threads.append(t)
+    #  t.start();
+    #  print "Thread number %d with num crosses %d has started" % (i, k)
+
+    #for thread in threads:
+    #  thread.join()
+
+  #  z = z + 1
+
   for k in range(4, numCrosses + 1, 2):
     for i in range(numIter):
-      diploidSet = generateHeterozygotes(numIndividuals)
-  
-      for j in range(k):
-        if crossOption == 1:
-          diploidSet = selfCross(diploidSet)
-        elif crossOption == 2:
-          diploidSet = circularCross(diploidSet)
-        elif crossOption == 3:
-          diploidSet = circularPairCross(diploidSet)
-        elif crossOption == 4:
-          diploidSet = inbreedingAvoidanceCross(diploidSet)
-        elif crossOption == 5:
-          diploidSet = randomCross(diploidSet)
-        elif crossOption == 6:
-          diploidSet = randomCrossEqualContribution(diploidSet)
-        elif crossOption == 7:
-          diploidSet = randomPairCross(diploidSet)
-        elif crossOption == 8:
-          diploidSet = randomPairCrossEqualContribution(diploidSet)
-
-      for j in range(numSelfing):
-        diploidSet = selfCross(diploidSet)
-
-      curAvgBinSizes = calcExpectedBinSize(diploidSet)
-      expectedNumBreakpoints = (float(numIndividuals) / 4) * ((k / 2) + (pow(2, numSelfing) - 1) / (pow(2, numSelfing))) 
-      crossBinSizes[z].append(np.mean(np.array(curAvgBinSizes)))
-      geneticDrifts[z].append(np.mean(np.array(calcGeneticDrift(chromNumber, randomMarkerLocs, diploidSet, targetAllele))))
-      mapExpansions[z].append(calcActualBreakpoints(diploidSet) / expectedNumBreakpoints)
+     simulateRecombinantInbredCross(crossBinSizes, geneticDrifts, mapExpansions, numSelfing, k, crossOption, chromNumber, randomMarkerLocs, targetAllele, z)
 
     z = z + 1
+
+  end = datetime.now()
+  diff = end - start;
+  print diff.seconds
 
   plt.boxplot(geneticDrifts)
   plt.xlabel("Number of Crosses")
   plt.ylabel("Deviation from 50 Percent")
   plt.title("Genetic Drift")
   plt.xticks(np.arange(1, len(range(4, numCrosses + 1))), range(4, numCrosses + 1, 2))
+  plt.savefig("geneticDrift%d%s%d.png" % (numIndividuals, crossDesign[crossOption - 1], numIter), bbox_inches='tight')
   plt.show()
 
   plt.boxplot(crossBinSizes)
   plt.xlabel("Number of Crosses")
-  plt.ylabel("Bin Size (cM)")
-  plt.title("Bin Size")
+  plt.ylabel("Expected Bin Size (cM)")
+  plt.title("Expected Bin Size")
   plt.xticks(np.arange(1, len(range(4, numCrosses + 1))), range(4, numCrosses + 1, 2))
+  plt.savefig("expectedBinSize%d%s%d.png" % (numIndividuals, crossDesign[crossOption - 1], numIter), bbox_inches='tight')
   plt.show()
 
   plt.boxplot(mapExpansions)
@@ -250,8 +285,15 @@ def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, num
   plt.ylabel("Map Expansion Relative to Infinite Population Case")
   plt.title("Map Expansion")
   plt.xticks(np.arange(1, len(range(4, numCrosses + 1))), range(4, numCrosses + 1, 2))
+  plt.savefig("mapExpansion%d%s%d.png" % (numIndividuals, crossDesign[crossOption - 1], numIter), bbox_inches='tight')
   plt.show()
 
+# Parameters for RecombinantInbredCross.py: 
+# numIndividuals - the number of individuals per generation
+# numCrosses - the max number of inbreeding generations to complete (goes in multiples of 2 from 4 up to the max)
+# numSelfing - the number of selfing generations after the inbreeding generations
+# numIter - the number of iterations to run each RIAIL
+# crossOption - the type of crossing done during the inbreeding phase
 if __name__ == '__main__':
   numIndividuals = int(sys.argv[1])
   numCrosses = int(sys.argv[2])
