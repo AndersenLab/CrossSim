@@ -11,6 +11,7 @@ from numpy import *
 from WormUtils import *
 import operator
 import itertools
+import random
 
 def newChromosomes(parent, n = None, cM = 200, chrNames=None, interference = "absent"):
     """Generates a list of n chromosomes, each with length cM (possibly a list, in which case n is optional)"""
@@ -41,15 +42,16 @@ def alleleCompare(a,b, P1):
 
 class Diploid(object):
     """ Diploid individual, monoecious"""
-    def __init__(self,  name = None, chromosome_set = None, newChr = None, cM = 200, chrNames = None):
+    def __init__(self,  name = None, chromosome_set = None, newChr = None, cM = 200, chrNames = None, interference = "absent"):
         self.name = name
+        self.interference = interference
         if (chromosome_set == None and newChr == None) or (chromosome_set != None and newChr != None):
               raise ValueError, "Must specify only one of either the number of new Chromosomes to add or sets of the chromosomes themselves."
         elif chromosome_set != None:
             self.chromosome_set = chromosome_set
         else:
-            self.chromosome_set = (newChromosomes(parent = self.name, n = newChr, cM = cM, chrNames = chrNames),
-                                   newChromosomes(parent = self.name, n = newChr, cM = cM, chrNames = chrNames) )
+            self.chromosome_set = (newChromosomes(parent = self.name, n = newChr, cM = cM, chrNames = chrNames, interference = interference),
+                                   newChromosomes(parent = self.name, n = newChr, cM = cM, chrNames = chrNames, interference = interference))
         for chr_list in self.chromosome_set:
             chr_list.sort(key= operator.attrgetter("name"))
        
@@ -60,11 +62,19 @@ class Diploid(object):
     def make_gamete(self):
         gamete = []
         for maternal, paternal in itertools.izip (self.chromosome_set[0], self.chromosome_set[1]):
-            gamete.append(maternal.recombine(paternal)[0])
+            potentialChromosomes = []
+            recombinantChromosomes = maternal.recombine(paternal)
+            potentialChromosomes.append(recombinantChromosomes[0])
+            potentialChromosomes.append(recombinantChromosomes[1])
+            potentialChromosomes.append(maternal)
+            potentialChromosomes.append(paternal)
+            random.shuffle(potentialChromosomes)
+
+            gamete.append(potentialChromosomes[random.randint(0, 3)])
         return gamete
 
     def mate(self, partner, nOffspring = 1):
-        offspring = [Diploid(chromosome_set = (self.make_gamete(), partner.make_gamete()))   
+        offspring = [Diploid(chromosome_set = (self.make_gamete(), partner.make_gamete()), interference = self.interference)   
                      for _ in xrange(nOffspring) ]
         return offspring
     
@@ -120,7 +130,7 @@ class Diploid(object):
           for k in range(len(lengthGeneticSizes)):
             lengthSumSquared += lengthGeneticSizes[k] * lengthGeneticSizes[k]
 
-          expectedBinGeneticSizes.append(lengthSumSquared / cM_max[j])
+          expectedBinGeneticSizes.append(lengthSumSquared / 50) # Switching to just 50 for now. 
 
       return expectedBinGeneticSizes 
 
@@ -174,12 +184,50 @@ class Haploid(object):
     
         
 if __name__ == '__main__':
-    Aparent = Diploid(name = "A", newChr = 10)
-    Bparent = Diploid(name = "B", newChr = 10)
-    F1s = Aparent.mate(Bparent, nOffspring = 4)
-    F2s = F1s[0].mate(F1s[1], nOffspring = 4)
+    Aparent = Diploid(name = "A", newChr = 6, interference = "complete")
+    Bparent = Diploid(name = "B", newChr = 6, interference = "complete")
+    F1s = Aparent.mate(Bparent, nOffspring = 6)
+    F2s = []
+    F3s = []
+
+    for j in range(6):
+      F2s.append(F1s[j].mate(F1s[(j + 1) % 6])[0])
     
-    print "Offspring Chromosomes:"
+    for j in range(6):
+      F3s.append(F2s[j].mate(F2s[(j + 1) % 6])[0])
+
+    i = 1
+
+    print "First Generation\n"
+    for f1s in F1s:
+      print "Individual %d" % i
+
+      for chrSet in f1s.chromosome_set:
+        print chrSet[0].segments
+
+      i = i +1
+
+    i = 1
+
+    print "Second Generation"
+    for f2s in F2s:
+      print "Individual %d" % i
+      for chrSet in f2s.chromosome_set:
+        print chrSet[0].segments
+
+      i = i + 1
+
+    i = 1
+
+    print "Third  Generation"
+    for f3s in F3s:
+      print "Individual %d" % i
+      for chrSet in f3s.chromosome_set:
+        print chrSet[0].segments
+
+      i = i + 1
+
+
     #print "F1 Ind 1: %s" % F1s[0].name 
     #for chr in F1s[0].chromosome_set[0]:
     #    print "Chr %s: %s" % (chr.name, chr.segments)
@@ -189,12 +237,12 @@ if __name__ == '__main__':
     #print "F2 Ind 2"
     #for chr in F1s[1].chromosome_set[1]:
     #    print "Chr %s: %s" % (chr.name, chr.segments)
-    print "Set 1"
-    for chr in F2s[1].chromosome_set[0]:
-        print "Chr %s: %s" % (chr.name, chr.segments)
-    print "Set 2"
-    for chr in F2s[1].chromosome_set[1]:
-        print "Chr %s: %s" % (chr.name, chr.segments)
+    #print "Set 1"
+    #for chr in F2s[1].chromosome_set[0]:
+    #    print "Chr %s: %s" % (chr.name, chr.segments)
+    #print "Set 2"
+    #for chr in F2s[1].chromosome_set[1]:
+    #    print "Chr %s: %s" % (chr.name, chr.segments)
     
     #print F2s[0].getAllGenos(interval = 50, reference = "A")
-    print F2s[0].getPercentageOfGenome(parentName = "A")
+    #print F2s[0].getPercentageOfGenome(parentName = "A")

@@ -176,7 +176,7 @@ def backCrossSimulation(physLoc, chromNumber, numCrosses, numIndividuals, bucket
         
   #Bparent only needed for backcrossing
   #Use the generated heterozyogtes for AIL simulations
-  Bparent = Diploid(name = "B", newChr = 6)
+  Bparent = Diploid(name = "B", newChr = 6, interference = "complete")
   targetNameDip = "A"
   genLoc = Chromosome.getLoc(physLoc, chromNumber)
 

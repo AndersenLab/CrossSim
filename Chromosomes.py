@@ -174,8 +174,8 @@ class Chromosome(object):
             raise ValueError, "Chromosome names are not the same; can't recombine between them." 
         if self == mate:
           #shortcut: any recombinants would be identical anyway
-          return (Chromosome(name = self.name, cM = self.cM,  segments = self.segments), 
-                  Chromosome(name = self.name, cM = self.cM,  segments = self.segments))
+          return (Chromosome(name = self.name, cM = self.cM,  segments = self.segments, interference = self.interference), 
+                  Chromosome(name = self.name, cM = self.cM,  segments = self.segments, interference = self.interference))
         
         if interference == None:
           interference = self.interference
@@ -185,6 +185,7 @@ class Chromosome(object):
         brokenSegments1 = list()
         brokenSegments2 = list()
         
+        # interference = absent is default. Generates multiple breaks, the number of which is based on a Poisson distribution
         if interference == "absent":
           crossOvers = generateBreaksPoisson(self.cM)
         elif interference == "complete":
@@ -227,11 +228,11 @@ class Chromosome(object):
         
         
         if random.binomial(1,0.5): #randomly order xover products
-            return (Chromosome(name = self.name, cM = self.cM,  segments = chr1), 
-                    Chromosome(name = self.name, cM = self.cM,  segments = chr2))
+            return (Chromosome(name = self.name, cM = self.cM, segments = chr1, interference = self.interference), 
+                    Chromosome(name = self.name, cM = self.cM, segments = chr2, interference = self.interference))
         else:
-            return (Chromosome(name = self.name, cM = self.cM,  segments = chr2), 
-                    Chromosome(name = self.name, cM = self.cM,  segments = chr1))            
+            return (Chromosome(name = self.name, cM = self.cM,  segments = chr2, interference = self.interference), 
+                    Chromosome(name = self.name, cM = self.cM,  segments = chr1, interference = self.interference))            
 
     #Returns the percentage of the chromosome that has the allele of a particular parent
     def getPercentageOfParent(self, parentName):
@@ -278,13 +279,14 @@ class Chromosome(object):
         seg = list(self.segments)
         lengthGeneticSizes = []
 
+        #Removing cM_max for now
         for i in range(1, len(seg)):
             locSize = seg[i][0] - seg[i - 1][0]
-            geneticSize = locSize * cM_max[chromNumber]
-            lengthGeneticSizes.append(locSize)
+            geneticSize = locSize * self.cM # Changing this to just cM (50) for now, revert back to cM_max[chromNumber] when ready
+            lengthGeneticSizes.append(geneticSize)
 
         locSize = 1.0 - seg[len(seg) - 1][0]
-        lengthGeneticSizes.append(locSize * cM_max[chromNumber])
+        lengthGeneticSizes.append(locSize * self.cM)
 
         return lengthGeneticSizes
 
@@ -302,6 +304,8 @@ if __name__ == '__main__':
     a = Chromosome(newParent = 'A', interference = "complete")
     b = Chromosome(newParent = 'B', interference = "complete")
     chroms = a.recombine(b)
+    print a.segments
+    print b.segments
     print chroms[0].segments
     print chroms[1].segments
     #a = Chromosome(newParent = "Blue")

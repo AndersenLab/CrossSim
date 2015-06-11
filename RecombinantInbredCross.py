@@ -172,26 +172,33 @@ def calcActualBreakpoints(diploidSet):
 
   return numBreakpoints
 
+def generateNextGeneration(crossOption, diploidSet):
+  if crossOption == 1:
+    diploidSet = selfCross(diploidSet)
+  elif crossOption == 2:
+    diploidSet = circularCross(diploidSet)
+  elif crossOption == 3:
+    diploidSet = circularPairCross(diploidSet)
+  elif crossOption == 4:
+    diploidSet = inbreedingAvoidanceCross(diploidSet)
+  elif crossOption == 5:
+    diploidSet = randomCross(diploidSet)
+  elif crossOption == 6:
+    diploidSet = randomCrossEqualContribution(diploidSet)
+  elif crossOption == 7:
+    diploidSet = randomPairCross(diploidSet)
+  elif crossOption == 8:
+    diploidSet = randomPairCrossEqualContribution(diploidSet)
+
+  return diploidSet
+
 def simulateRecombinantInbredCross(crossBinSizes, geneticDrifts, mapExpansions, numSelfing, k, crossOption, chromNumber, randomMarkerLocs, targetAllele, z):
   diploidSet = generateHeterozygotes(numIndividuals)
+  diploidSet = generateNextGeneration(crossOption, diploidSet)
+  print diploidSet[0].chromosome_set[0][0].interference
 
   for j in range(k):
-    if crossOption == 1:
-      diploidSet = selfCross(diploidSet)
-    elif crossOption == 2:
-      diploidSet = circularCross(diploidSet)
-    elif crossOption == 3:
-      diploidSet = circularPairCross(diploidSet)
-    elif crossOption == 4:
-      diploidSet = inbreedingAvoidanceCross(diploidSet)
-    elif crossOption == 5:
-      diploidSet = randomCross(diploidSet)
-    elif crossOption == 6:
-      diploidSet = randomCrossEqualContribution(diploidSet)
-    elif crossOption == 7:
-      diploidSet = randomPairCross(diploidSet)
-    elif crossOption == 8:
-      diploidSet = randomPairCrossEqualContribution(diploidSet)
+    diploidSet = generateNextGeneration(crossOption, diploidSet)
 
     for j in range(numSelfing):
       diploidSet = selfCross(diploidSet)
@@ -207,13 +214,11 @@ def simulateRecombinantInbredCross(crossBinSizes, geneticDrifts, mapExpansions, 
       geneticDrifts[z].append(np.mean(np.array(calcGeneticDrift(diploidSet, chromNumber, randomMarkerLocs, targetAllele))))
       mapExpansions[z].append(calcActualBreakpoints(diploidSet) / expectedNumBreakpoints)
 
-  print threading.currentThread().getName(), "Exiting"
-
 def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, numIter, crossOption):
-  if os.path.isfile('average_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1])):
-    binSizeFile = open('average_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]), 'a')
+  if os.path.isfile('expected_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1])):
+    binSizeFile = open('expected_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]), 'a')
   else:
-    binSizeFile = open('average_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]), 'wb')   
+    binSizeFile = open('expected_genetic_bin_size_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1]), 'wb')   
     binSizeFile.write('Number of Back Crosses,Average Bin Size,Bin Size Standard Deviation\n')
 
   if os.path.isfile('genetic_drift_%d_%d_%d_%d_%s.csv' % (numIndividuals, numCrosses, numSelfing, numIter, crossDesign[crossOption - 1])):
@@ -255,8 +260,16 @@ def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, num
   #  z = z + 1
 
   for k in range(4, numCrosses + 1, 2):
+    print k
+    print '\n'
     for i in range(numIter):
      simulateRecombinantInbredCross(crossBinSizes, geneticDrifts, mapExpansions, numSelfing, k, crossOption, chromNumber, randomMarkerLocs, targetAllele, z)
+
+    binSizeFile.write('%d,%f,%f\n' % (k, np.mean(np.array(crossBinSizes[z])), np.std(np.array(crossBinSizes[z]))))
+    geneticDriftFile.write('%d,%f,%f\n' % (k, np.mean(np.array(geneticDrifts[z])), np.std(np.array(geneticDrifts[z]))))
+    mapExpansionFile.write('%d,%f,%f\n' % (k, np.mean(np.array(mapExpansions[z])), np.std(np.array(mapExpansions[z]))))
+    print i
+    print '\n'
 
     z = z + 1
 
@@ -269,7 +282,7 @@ def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, num
   plt.ylabel("Deviation from 50 Percent")
   plt.title("Genetic Drift")
   plt.xticks(np.arange(1, len(range(4, numCrosses + 1))), range(4, numCrosses + 1, 2))
-  plt.savefig("geneticDrift%d%s%d.png" % (numIndividuals, crossDesign[crossOption - 1], numIter), bbox_inches='tight')
+  plt.savefig("geneticDrift_%d_%s_%d_%d_%d.png" % (numIndividuals, crossDesign[crossOption - 1], numIter, numCrosses, numSelfing), bbox_inches='tight')
   plt.show()
 
   plt.boxplot(crossBinSizes)
@@ -277,7 +290,7 @@ def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, num
   plt.ylabel("Expected Bin Size (cM)")
   plt.title("Expected Bin Size")
   plt.xticks(np.arange(1, len(range(4, numCrosses + 1))), range(4, numCrosses + 1, 2))
-  plt.savefig("expectedBinSize%d%s%d.png" % (numIndividuals, crossDesign[crossOption - 1], numIter), bbox_inches='tight')
+  plt.savefig("expectedBinSize_%d_%s_%d_%d_%d.png" % (numIndividuals, crossDesign[crossOption - 1], numIter, numCrosses, numSelfing), bbox_inches='tight')
   plt.show()
 
   plt.boxplot(mapExpansions)
@@ -285,7 +298,7 @@ def recombinantInbredLinesSimulation(numIndividuals, numCrosses, numSelfing, num
   plt.ylabel("Map Expansion Relative to Infinite Population Case")
   plt.title("Map Expansion")
   plt.xticks(np.arange(1, len(range(4, numCrosses + 1))), range(4, numCrosses + 1, 2))
-  plt.savefig("mapExpansion%d%s%d.png" % (numIndividuals, crossDesign[crossOption - 1], numIter), bbox_inches='tight')
+  plt.savefig("mapExpansion_%d_%s_%d_%d_%d.png" % (numIndividuals, crossDesign[crossOption - 1], numIter, numCrosses, numSelfing), bbox_inches='tight')
   plt.show()
 
 # Parameters for RecombinantInbredCross.py: 
